@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 
+export DEBIAN_FRONTEND=noninteractive
+
 if [ ! -f /etc/apt/sources.list.old ]
 then
     sudo mv /etc/apt/sources.list /etc/apt/sources.list.old
     sudo cp /vagrant/conf/sources.list /etc/apt/sources.list
+fi
+
+if [ ! -f /etc/apt/preferences.d/sid.pref ]
+then
+    sudo cp /vagrant/conf/sid.pref /etc/apt/preferences.d/
 fi
 
 sudo apt-get update
@@ -11,47 +18,24 @@ sudo apt-get dist-upgrade -y
 
 cat /vagrant/conf/bashrc.sh >> ~/.bashrc
 
-# PostgreSQL
-sidsrc=/etc/apt/sources.list.d/sid-src.list
-echo "deb-src http://ftp.fr.debian.org/debian/ sid main" | sudo tee $sidsrc
-
-pgdg=/etc/apt/sources.list.d/pgdg.list
-pgdgkey=https://www.postgresql.org/media/keys/ACCC4CF8.asc
-echo "deb http://apt.postgresql.org/pub/repos/apt/ wheezy-pgdg main" | sudo tee $pgdg
-
-wget --quiet -O - ${pgdgkey} | sudo apt-key add -
-
-# MariaDB
-sudo apt-get install -y python-software-properties
-sudo apt-key adv --recv-keys --keyserver keyserver.ubuntu.com 0xcbcb082a1bb943db
-sudo add-apt-repository 'deb http://mirrors.linsrv.net/mariadb/repo/10.0/debian wheezy main'
-
-sudo apt-get update
-sudo apt-get install -y postgresql-9.3 postgresql-contrib-9.3 \
-                        postgresql-9.3-ip4r                   \
+sudo apt-get install -y postgresql-9.4 postgresql-contrib-9.4 \
+                        postgresql-9.4-ip4r                   \
                         sbcl                                  \
                         git patch unzip                       \
                         devscripts pandoc                     \
                         libsqlite3-dev                        \
-                        gnupg gnupg-agent
+                        gnupg gnupg-agent freetds-dev
 
-sudo DEBIAN_FRONTEND=noninteractive \
-     apt-get install -y --allow-unauthenticated mariadb-server
+# SBCL and other build dependencies
+sudo apt-get build-dep -y pgloader
+sudo apt-get install -y -t unstable cl-mssql cl-uuid cl-trivial-utf-8
 
-# SBCL
-#
-# we need to backport SBCL from sid to have a recent enough version of the
-# compiler and run time we depend on
-sudo apt-get -y build-dep sbcl
-sudo apt-get source -b sbcl > /dev/null 2>&1 # too verbose
-sudo dpkg -i *.deb
-
-HBA=/etc/postgresql/9.3/main/pg_hba.conf
+HBA=/etc/postgresql/9.4/main/pg_hba.conf
 echo "local all all trust"              | sudo tee $HBA
 echo "host  all all 127.0.0.1/32 trust" | sudo tee -a $HBA
 
-sudo pg_ctlcluster 9.3 main reload
-createuser -U postgres -SdR `whoami`
+sudo pg_ctlcluster 9.4 main reload
+createuser -U postgres -sdR `whoami`
+createdb -O `whoami` pgloader
 
-make -C /vagrant pgloader
-make -C /vagrant test
+make -C /vagrant pgloader test

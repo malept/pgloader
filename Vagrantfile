@@ -6,8 +6,8 @@ VAGRANTFILE_API_VERSION = "2"
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "wheezy" do |wheezy|
-    wheezy.vm.box = "wheezy64"
+  config.vm.define "jessie" do |jessie|
+    jessie.vm.box = "debian/jessie64"
 
     config.vm.provision :file do |file|
       file.source      = 'conf/gpg-agent.conf'
